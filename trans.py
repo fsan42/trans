@@ -98,6 +98,8 @@ def get_res_and_set(lan, to, query, sign, session, common, headers):
     with open("/home/{}/trans_log/history.log".format(user), mode="a+", encoding="utf-8", ) as f:
         f.write("{}:{}\n".format(query, res))
     print(res)
+    os.system('notify-send "{}"'.format(res))
+
     pyperclip.copy(res)
 
 
@@ -125,6 +127,8 @@ if __name__ == '__main__':
     cache = get_history(query)
     if cache is not None:
         print(cache)
+        os.system('notify-send "{}"'.format(cache))
+
         pyperclip.copy(cache)
 
     else:
