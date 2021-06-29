@@ -1,11 +1,13 @@
 import json
 import os
+import platform
 import re
+import sys
+
 import demjson
 import js2py
-import requests
 import pyperclip
-import sys
+import requests
 
 
 def get_common(session, headers):
@@ -98,7 +100,7 @@ def get_res_and_set(lan, to, query, sign, session, common, headers):
     with open("/home/{}/trans_log/history.log".format(user), mode="a+", encoding="utf-8", ) as f:
         f.write("{}:{}\n".format(query, res))
     print(res)
-    os.system('notify-send "{}"'.format(res))
+    toast_message(res)
 
     pyperclip.copy(res)
 
@@ -114,7 +116,18 @@ def get_history(query):
 
     else:
         os.makedirs("/home/{}/trans_log/".format(user))
-        os.mknod("/home/{}/trans_log/history.log".format(user))
+        file = ("/home/{}/trans_log/history.log".format(user))
+        with open(file, "a+") as f:
+            pass
+
+
+def toast_message(message):
+    if "Windows" in platform.platform():
+        import win32con, win32api
+        win32api.MessageBox(0, message, "翻译完成", win32con.MB_OK)
+
+    else:
+        os.system('notify-send "{}"'.format(cache))
 
 
 if __name__ == '__main__':
@@ -127,7 +140,7 @@ if __name__ == '__main__':
     cache = get_history(query)
     if cache is not None:
         print(cache)
-        os.system('notify-send "{}"'.format(cache))
+        toast_message(cache)
 
         pyperclip.copy(cache)
 
