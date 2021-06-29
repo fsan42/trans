@@ -1,15 +1,15 @@
 import json
+import os
 import re
 import demjson
-import execjs
+import js2py
 import requests
 import pyperclip
 import sys
 
 
 def get_common(session, headers):
-    response = session.get("http://fanyi.baidu.com", )
-    cookie = requests.utils.dict_from_cookiejar(response.cookies)["BAIDUID"]
+    session.get("http://fanyi.baidu.com", )
 
     html = session.get("http://fanyi.baidu.com", headers=headers).text
     common = re.findall("window\[\'common\'\] = ([\s\S]*)(// 图片翻译小流量)", html)[0][0] + "}"
@@ -60,13 +60,10 @@ function n(r, o) {
     return r
 }
 '''
-    # code = code.de("utf-8").decode("utf-8")
 
-    # with open("sign.js", encoding="utf-8", mode="r") as f:
-    #     code = f.read()
-
-    ctx = execjs.compile(code)
-    return ctx.call("e", query)
+    ctx = js2py.EvalJs()  # 初始化context对象
+    ctx.execute(code)  # 执行js
+    return ctx.e(query)  # >>81  执行js函数
 
 
 def get_lan_to(session, query, headers):
@@ -82,6 +79,8 @@ def get_lan_to(session, query, headers):
 
 
 def get_res_and_set(lan, to, query, sign, session, common, headers):
+    user = os.getlogin()
+
     data = {
         'from': lan,
         'to': to,
@@ -96,30 +95,56 @@ def get_res_and_set(lan, to, query, sign, session, common, headers):
     response = session.post('https://fanyi.baidu.com/v2transapi', headers=headers, data=data)
     response = json.loads(response.text)
     res = response['trans_result']['data'][0]['dst']
+    with open("/home/{}/trans_log/history.log".format(user), mode="a+", encoding="utf-8", ) as f:
+        f.write("{}:{}\n".format(query, res))
     print(res)
     pyperclip.copy(res)
 
 
+def get_history(query):
+    user = os.getlogin()
+    if os.path.exists("/home/{}/trans_log/history.log".format(user)):
+        with open("/home/{}/trans_log/history.log".format(user), mode="r", encoding="utf-8", ) as f:
+            records = f.readlines()
+            for i in records:
+                if i.split(":")[0] == query:
+                    return i.split(":")[1].replace("\n", "")
+
+    else:
+        os.makedirs("/home/{}/trans_log/".format(user))
+        os.mknod("/home/{}/trans_log/history.log".format(user))
+
+
 if __name__ == '__main__':
-    headers = {
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'Origin': 'https://fanyi.baidu.com',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'Accept': '*/*',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Connection': 'keep-alive',
-    }
-    session = requests.session()
-
-    common = get_common(session, headers)
-
     query = " ".join(sys.argv[1:])
+    if query == '':
+        query = pyperclip.paste()
+
     print(query)
 
-    sign = get_sign(query)
-    lan, to = get_lan_to(session, query, headers)
-    get_res_and_set(lan, to, query, sign, session, common, headers)
+    cache = get_history(query)
+    if cache is not None:
+        print(cache)
+        pyperclip.copy(cache)
+
+    else:
+        headers = {
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'Origin': 'https://fanyi.baidu.com',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Accept': '*/*',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Connection': 'keep-alive',
+        }
+        session = requests.session()
+
+        common = get_common(session, headers)
+
+        sign = get_sign(query)
+        lan, to = get_lan_to(session, query, headers)
+        get_res_and_set(lan, to, query, sign, session, common, headers)
+        sys.exit(0)
